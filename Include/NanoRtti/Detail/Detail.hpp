@@ -95,8 +95,8 @@ namespace NanoRtti
             using NoPtrToType = std::remove_pointer_t<To>;
             using NoCvToType = std::remove_cv_t<NoPtrToType>;
 
-            static constexpr bool value = std::is_pointer_v<To> && ((std::is_convertible_v<NoCvFromType*, NoCvToType*>) ||
-                                                                       (std::is_convertible_v<NoCvToType*, NoCvFromType*>));
+            static constexpr bool value = std::is_pointer<To>::value && ((std::is_convertible<NoCvFromType*, NoCvToType*>::value) ||
+                                                                            (std::is_convertible<NoCvToType*, NoCvFromType*>::value));
         };
     } // namespace Detail
 } // namespace NanoRtti

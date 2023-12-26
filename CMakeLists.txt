@@ -14,24 +14,27 @@ option(NANO_RTTI_BUILD_TESTS "Build tests of NanoRtti" ON)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(NR_CLANGFORMAT)
-    find_program(CLANG_FORMAT
+    find_program(clang_format
         NAMES
             clang-format-10
             clang-format
     )
 
-    if(${CLANG_FORMAT} STREQUAL "CLANG_FORMAT-NOTFOUND")
+    if(${clang_format} STREQUAL "CLANG_FORMAT-NOTFOUND")
         message(FATAL_ERROR "No clang-format tool found")
     endif()
 
-    file(GLOB_RECURSE ALL_SOURCE_FILES *.cpp *.h *.hpp)
-    add_custom_target(clangformat
-        COMMAND ${CLANG_FORMAT} -i ${ALL_SOURCE_FILES}
-        COMMENT "Formatting with ${CLANG_FORMAT} ..."
+    message(STATUS "Generating clang-format target using ${clang_format}")
+    file(GLOB_RECURSE all_source_files *.cpp *.h *.hpp)
+    add_custom_target(clang_format
+        COMMAND ${clang_format} -i ${all_source_files}
+        COMMENT "Formatting with ${clang_format} ..."
     )
 
     return()

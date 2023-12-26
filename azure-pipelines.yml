@@ -1,0 +1,124 @@
+variables:
+  configuration: Release
+  platform: x64
+  test_cmd_windows: './Build/$(BUILD_DIR)/bin/$(configuration)/Test.exe'
+  test_cmd_nix: './Build/$(BUILD_DIR)/bin/Test'
+
+stages:
+- stage: ClangFormat
+  jobs:
+  - job: ClangFormat
+    pool:
+      vmImage: Ubuntu-20.04
+
+    variables:
+      CC: gcc
+      CXX: g++
+
+    steps:
+    - bash: |
+        sudo apt-get install clang-format
+      displayName: 'Install'
+    - script: |
+        mkdir -p Build/clang-format
+        cd Build/clang-format
+        cmake -G "Unix Makefiles" -DNR_CLANGFORMAT=ON ../../
+        make clang_format
+        cd ../../
+        git diff --exit-code $(Build.SourceVersion)
+      failOnStderr: true
+      displayName: 'Check code formatting'
+
+- stage: Build
+  condition: succeeded('ClangFormat')
+  jobs:
+  - job: Build
+    strategy:
+      matrix:
+        Windows_vc142_x64:
+          vmImage: windows-2019
+          project: vs2019
+          compiler: vc142
+          install_cmd: 'choco install ninja'
+          test_cmd: $(test_cmd_windows)
+          BUILD_DIR: $(compiler)
+        Windows_vc142_arm64:
+          vmImage: windows-2019
+          project: vs2019
+          compiler: vc142
+          platform: arm64
+          install_cmd: 'choco install ninja'
+          BUILD_DIR: $(compiler)
+        Windows_vc143_x64:
+          vmImage: windows-2022
+          project: vs2022
+          compiler: vc143
+          install_cmd: 'choco install ninja'
+          test_cmd: $(test_cmd_windows)
+          BUILD_DIR: $(compiler)
+        Windows_vc143_arm64:
+          vmImage: windows-2022
+          project: vs2022
+          compiler: vc143
+          platform: arm64
+          install_cmd: 'choco install ninja'
+          BUILD_DIR: $(compiler)
+        Linux_gcc12:
+          vmImage: Ubuntu-22.04
+          project: ninja
+          compiler: gcc
+          install_cmd: |
+            sudo apt-get update
+            sudo apt-get install g++-12 ninja-build python3
+          test_cmd: $(test_cmd_nix)
+          BUILD_DIR: $(compiler)
+          CC: gcc-12
+          CXX: g++-12
+        Linux_clang16:
+          vmImage: Ubuntu-22.04
+          project: ninja
+          compiler: clang
+          install_cmd: |
+            wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+            sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main"
+            sudo apt-get update
+            sudo apt-get install clang-16 libc++-16-dev libc++abi-16-dev lld-16 ninja-build python3
+          test_cmd: $(test_cmd_nix)
+          BUILD_DIR: $(compiler)
+          CC: clang-16
+          CXX: clang++-16
+        macOS_13_clang:
+          vmImage: macOS-13
+          project: ninja
+          compiler: clang
+          install_cmd: 'brew install ninja'
+          test_cmd: $(test_cmd_nix)
+          BUILD_DIR: $(compiler)
+          CC: clang
+          CXX: clang++
+
+    pool:
+      vmImage: $(vmImage)
+
+    steps:
+      - checkout: self
+        fetchDepth: 5
+
+      - bash: eval '$(install_cmd)'
+        displayName: 'Install'
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.x'
+          addToPath: true
+          architecture: 'x64'
+
+      - task: PythonScript@0
+        displayName: 'Build'
+        inputs:
+          scriptPath: Build.py
+          arguments: '$(project) $(compiler) $(platform) $(configuration)'
+
+      - bash: eval '$(test_cmd)'
+        displayName: 'Test'
+        condition: ne(variables.test_cmd, '')
