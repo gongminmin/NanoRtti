@@ -49,9 +49,21 @@ namespace NanoRtti
     }
 } // namespace NanoRtti
 
+#if defined(__clang__)
+    #define IGNORE_MISSING_OVERRIDE_BEGIN \
+        _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Winconsistent-missing-override\"")
+
+    #define IGNORE_MISSING_OVERRIDE_END _Pragma("clang diagnostic pop")
+#else
+    #define IGNORE_MISSING_OVERRIDE_BEGIN
+    #define IGNORE_MISSING_OVERRIDE_END
+#endif
+
 #define NANO_RTTI_REGISTER_RUNTIME_CLASS(...)                        \
     using NanoRttiTagType = NanoRtti::Detail::BasesTag<__VA_ARGS__>; \
+    IGNORE_MISSING_OVERRIDE_BEGIN                                    \
     virtual NanoRtti::TypeInfo NanoRttiTypeId() const noexcept       \
     {                                                                \
         return NanoRtti::TypeId<decltype(*this)>();                  \
-    }
+    }                                                                \
+    IGNORE_MISSING_OVERRIDE_END
