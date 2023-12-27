@@ -58,6 +58,6 @@ endif()
 
 if (NANO_RTTI_BUILD_TESTS)
     add_subdirectory(Test)
-endif()
 
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "Test")
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "Test")
+endif()
