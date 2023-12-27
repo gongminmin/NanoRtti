@@ -106,7 +106,7 @@ class BuildInfo:
 
 		if self.is_windows:
 			if "vc143" == compiler:
-				if project == "vs2022":
+				if (project == "vs2022") or (project == "ninja"):
 					try_folder = self.FindVS2022Folder(program_files_folder)
 					if try_folder is not None:
 						compiler_root = try_folder
@@ -116,7 +116,7 @@ class BuildInfo:
 						LogError("Could NOT find vc143 compiler toolset for VS2022.\n")
 				else:
 					LogError("Could NOT find vc143 compiler.\n")
-			if "vc142" == compiler:
+			elif "vc142" == compiler:
 				if project == "vs2022":
 					try_folder = self.FindVS2022Folder(program_files_folder)
 					if try_folder is not None:
@@ -125,7 +125,7 @@ class BuildInfo:
 						vcvarsall_options = "-vcvars_ver=14.2"
 					else:
 						LogError("Could NOT find vc142 compiler toolset for VS2022.\n")
-				elif project == "vs2019":
+				elif (project == "vs2019") or (project == "ninja"):
 					try_folder = self.FindVS2019Folder(program_files_folder)
 					if try_folder is not None:
 						compiler_root = try_folder
@@ -152,6 +152,16 @@ class BuildInfo:
 						vcvarsall_options = ""
 					else:
 						LogError("Could NOT find clang-cl compiler toolset for VS2019.\n")
+				elif project == "ninja":
+					try_folder = self.FindVS2022Folder(program_files_folder)
+					if try_folder is None:
+						try_folder = self.FindVS2019Folder(program_files_folder)
+					if try_folder is not None:
+						compiler_root = try_folder
+						vcvarsall_path = "VCVARSALL.BAT"
+						vcvarsall_options = ""
+					else:
+						LogError("Could NOT find clang-cl compiler toolset for VS2019 or VS2022.\n")
 				else:
 					LogError("Could NOT find clang-cl compiler.\n")
 			elif "clang" == compiler:
@@ -231,6 +241,11 @@ class BuildInfo:
 			elif "vc142" == compiler:
 				compiler_name = "vc"
 				compiler_version = 142
+				for arch in archs:
+					compilers.append(CompilerInfo(self, arch, gen_name, compiler_root, vcvarsall_path, vcvarsall_options))
+			elif "clangcl" == compiler:
+				compiler_name = "clangcl"
+				compiler_version = self.RetrieveClangVersion(compiler_root + "../../Tools/Llvm/bin/")
 				for arch in archs:
 					compilers.append(CompilerInfo(self, arch, gen_name, compiler_root, vcvarsall_path, vcvarsall_options))
 			else:
@@ -442,7 +457,7 @@ def BuildProjects(name, build_path, build_info, compiler_info, project_list, add
 			toolset_name += " v%s," % build_info.compiler_version
 			toolset_name += "host=x64"
 
-	if build_info.project_type.startswith("vs"):
+	if build_info.compiler_name == "vc":
 		if "x64" == compiler_info.arch:
 			vc_option = "amd64"
 			vc_arch = "x64"
@@ -522,8 +537,6 @@ def BuildProjects(name, build_path, build_info, compiler_info, project_list, add
 				os.makedirs(build_dir)
 				if ("clang" == build_info.compiler_name):
 					env = os.environ
-					if not ("CC" in env):
-						additional_options += " -DCMAKE_C_COMPILER=clang"
 					if not ("CXX" in env):
 						additional_options += " -DCMAKE_CXX_COMPILER=clang++"
 
@@ -540,7 +553,7 @@ def BuildProjects(name, build_path, build_info, compiler_info, project_list, add
 				cmake_cmd.AddCommand('@SET PATH=%s;%%PATH%%' % new_path)
 				cmake_cmd.AddCommand('@CALL "%s%s" %s' % (compiler_info.compiler_root, compiler_info.vcvarsall_path, vc_option))
 				cmake_cmd.AddCommand('@CD /d "%s"' % build_dir)
-				additional_options += " -DCMAKE_C_COMPILER=cl.exe -DCMAKE_CXX_COMPILER=cl.exe"
+				additional_options += " -DCMAKE_CXX_COMPILER=cl.exe"
 			cmake_cmd.AddCommand('cmake -G "%s" %s ../../' % (compiler_info.generator, additional_options))
 			if cmake_cmd.Execute() != 0:
 				LogWarning("Config %s failed, retry 1...\n" % name)

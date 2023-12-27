@@ -37,33 +37,38 @@ stages:
       matrix:
         Windows_vc142_x64:
           vmImage: windows-2019
-          project: vs2019
+          project: ninja
           compiler: vc142
-          test_cmd: $(test_cmd_multi_cfg)
+          install_cmd: 'choco install ninja'
+          test_cmd: $(test_cmd_single_cfg)
           BUILD_DIR: $(compiler)
         Windows_vc142_arm64:
           vmImage: windows-2019
-          project: vs2019
+          project: ninja
           compiler: vc142
           platform: arm64
+          install_cmd: 'choco install ninja'
           BUILD_DIR: $(compiler)
         Windows_vc143_x64:
           vmImage: windows-2022
-          project: vs2022
+          project: ninja
           compiler: vc143
-          test_cmd: $(test_cmd_multi_cfg)
+          install_cmd: 'choco install ninja'
+          test_cmd: $(test_cmd_single_cfg)
           BUILD_DIR: $(compiler)
         Windows_vc143_arm64:
           vmImage: windows-2022
-          project: vs2022
+          project: ninja
           compiler: vc143
           platform: arm64
+          install_cmd: 'choco install ninja'
           BUILD_DIR: $(compiler)
         Windows_clangcl12:
           vmImage: windows-2019
-          project: vs2019
+          project: ninja
           compiler: clangcl
-          test_cmd: $(test_cmd_multi_cfg)
+          install_cmd: 'choco install ninja'
+          test_cmd: $(test_cmd_single_cfg)
           BUILD_DIR: $(compiler)
         Windows_gcc13:
           vmImage: windows-2019
