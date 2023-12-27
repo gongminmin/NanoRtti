@@ -1,8 +1,8 @@
 variables:
   configuration: Release
   platform: x64
-  test_cmd_windows: './Build/$(BUILD_DIR)/bin/$(configuration)/Test.exe'
-  test_cmd_nix: './Build/$(BUILD_DIR)/bin/Test'
+  test_cmd_multi_cfg: './Build/$(BUILD_DIR)/bin/$(configuration)/Test'
+  test_cmd_single_cfg: './Build/$(BUILD_DIR)/bin/Test'
 
 stages:
 - stage: ClangFormat
@@ -39,29 +39,38 @@ stages:
           vmImage: windows-2019
           project: vs2019
           compiler: vc142
-          install_cmd: 'choco install ninja'
-          test_cmd: $(test_cmd_windows)
+          test_cmd: $(test_cmd_multi_cfg)
           BUILD_DIR: $(compiler)
         Windows_vc142_arm64:
           vmImage: windows-2019
           project: vs2019
           compiler: vc142
           platform: arm64
-          install_cmd: 'choco install ninja'
           BUILD_DIR: $(compiler)
         Windows_vc143_x64:
           vmImage: windows-2022
           project: vs2022
           compiler: vc143
-          install_cmd: 'choco install ninja'
-          test_cmd: $(test_cmd_windows)
+          test_cmd: $(test_cmd_multi_cfg)
           BUILD_DIR: $(compiler)
         Windows_vc143_arm64:
           vmImage: windows-2022
           project: vs2022
           compiler: vc143
           platform: arm64
+          BUILD_DIR: $(compiler)
+        Windows_clangcl12:
+          vmImage: windows-2019
+          project: vs2019
+          compiler: clangcl
+          test_cmd: $(test_cmd_multi_cfg)
+          BUILD_DIR: $(compiler)
+        Windows_gcc13:
+          vmImage: windows-2019
+          project: ninja
+          compiler: mingw
           install_cmd: 'choco install ninja'
+          test_cmd: $(test_cmd_single_cfg)
           BUILD_DIR: $(compiler)
         Linux_gcc12:
           vmImage: Ubuntu-22.04
@@ -70,7 +79,7 @@ stages:
           install_cmd: |
             sudo apt-get update
             sudo apt-get install g++-12 ninja-build python3
-          test_cmd: $(test_cmd_nix)
+          test_cmd: $(test_cmd_single_cfg)
           BUILD_DIR: $(compiler)
           CC: gcc-12
           CXX: g++-12
@@ -83,7 +92,7 @@ stages:
             sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main"
             sudo apt-get update
             sudo apt-get install clang-16 libc++-16-dev libc++abi-16-dev lld-16 ninja-build python3
-          test_cmd: $(test_cmd_nix)
+          test_cmd: $(test_cmd_single_cfg)
           BUILD_DIR: $(compiler)
           CC: clang-16
           CXX: clang++-16
@@ -92,7 +101,7 @@ stages:
           project: ninja
           compiler: clang
           install_cmd: 'brew install ninja'
-          test_cmd: $(test_cmd_nix)
+          test_cmd: $(test_cmd_single_cfg)
           BUILD_DIR: $(compiler)
           CC: clang
           CXX: clang++
@@ -106,6 +115,13 @@ stages:
 
       - bash: eval '$(install_cmd)'
         displayName: 'Install'
+        condition: ne(variables.install_cmd, '')
+
+      - pwsh: |
+          $mingwPath = "C:\msys64\mingw64\bin"
+          Write-Host "##vso[task.setvariable variable=PATH;]$mingwPath;${env:PATH}";
+        displayName: 'Config msys2 PATH'
+        condition: eq(variables.compiler, 'mingw')
 
       - task: UsePythonVersion@0
         inputs:
