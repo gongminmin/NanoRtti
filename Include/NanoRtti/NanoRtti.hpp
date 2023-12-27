@@ -43,7 +43,7 @@ namespace NanoRtti
     }
 
     template <class To, class From, std::enable_if_t<!Detail::IsInterConvertible<From, To>::value, bool> = true>
-    inline To DynCast(From* value)
+    inline To DynCast(From*)
     {
         return nullptr;
     }

@@ -15,11 +15,15 @@ if(MSVC)
     target_compile_options(Test
         PRIVATE
             /GR-
+            /W4
+            /WX
     )
 else()
     target_compile_options(Test
         PRIVATE
             -fno-rtti
+            -Wall
+            -Werror
     )
 endif()
 
