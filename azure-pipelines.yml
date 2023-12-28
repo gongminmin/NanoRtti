@@ -1,30 +1,22 @@
 variables:
   configuration: Release
-  platform: x64
-  test_cmd_multi_cfg: './Build/$(BUILD_DIR)/bin/$(configuration)/Test'
-  test_cmd_single_cfg: './Build/$(BUILD_DIR)/bin/Test'
+  test_cmd_multi_cfg: './Build/bin/$(configuration)/Test'
+  test_cmd_single_cfg: './Build/bin/Test'
 
 stages:
 - stage: ClangFormat
   jobs:
   - job: ClangFormat
     pool:
-      vmImage: Ubuntu-20.04
-
-    variables:
-      CC: gcc
-      CXX: g++
+      vmImage: Ubuntu-22.04
 
     steps:
-    - bash: |
-        sudo apt-get install clang-format
-      displayName: 'Install'
     - script: |
-        mkdir -p Build/clang-format
-        cd Build/clang-format
-        cmake -G "Unix Makefiles" -DNR_CLANGFORMAT=ON ../../
+        mkdir Build
+        cd Build
+        cmake -G "Unix Makefiles" -DNR_CLANGFORMAT=ON ../
         make clang_format
-        cd ../../
+        cd ../
         git diff --exit-code $(Build.SourceVersion)
       failOnStderr: true
       displayName: 'Check code formatting'
@@ -33,83 +25,56 @@ stages:
   condition: succeeded('ClangFormat')
   jobs:
   - job: Build
+
+    variables:
+      toolset: ''
+      build_setup_cmd: ''
+      build_type: '-DCMAKE_BUILD_TYPE:STRING=$(configuration)'
+
     strategy:
       matrix:
-        Windows_vc142_x64:
+        Windows_vc142:
           vmImage: windows-2019
-          project: ninja
-          compiler: vc142
-          install_cmd: 'choco install ninja'
-          test_cmd: $(test_cmd_single_cfg)
-          BUILD_DIR: $(compiler)
-        Windows_vc142_arm64:
-          vmImage: windows-2019
-          project: ninja
-          compiler: vc142
-          platform: arm64
-          install_cmd: 'choco install ninja'
-          BUILD_DIR: $(compiler)
-        Windows_vc143_x64:
+          generator: 'Visual Studio 16 2019'
+          toolset: '-T v142'
+          CXX: cl
+          build_type: ''
+          test_cmd: $(test_cmd_multi_cfg)
+        Windows_vc143:
           vmImage: windows-2022
-          project: ninja
-          compiler: vc143
-          install_cmd: 'choco install ninja'
-          test_cmd: $(test_cmd_single_cfg)
-          BUILD_DIR: $(compiler)
-        Windows_vc143_arm64:
-          vmImage: windows-2022
-          project: ninja
-          compiler: vc143
-          platform: arm64
-          install_cmd: 'choco install ninja'
-          BUILD_DIR: $(compiler)
-        Windows_clangcl12:
+          generator: 'Visual Studio 17 2022'
+          toolset: '-T v143'
+          CXX: cl
+          build_type: ''
+          test_cmd: $(test_cmd_multi_cfg)
+        Windows_clangcl:
           vmImage: windows-2019
-          project: ninja
-          compiler: clangcl
-          install_cmd: 'choco install ninja'
-          test_cmd: $(test_cmd_single_cfg)
-          BUILD_DIR: $(compiler)
-        Windows_gcc13:
+          generator: 'Visual Studio 16 2019'
+          toolset: '-T ClangCL'
+          CXX: clang-cl
+          build_type: ''
+          test_cmd: $(test_cmd_multi_cfg)
+        Windows_gcc:
           vmImage: windows-2019
-          project: ninja
-          compiler: mingw
-          install_cmd: 'choco install ninja'
+          build_setup_cmd: export PATH=/c/msys64/mingw64/bin:$PATH
+          generator: 'MinGW Makefiles'
+          CXX: g++
           test_cmd: $(test_cmd_single_cfg)
-          BUILD_DIR: $(compiler)
         Linux_gcc12:
           vmImage: Ubuntu-22.04
-          project: ninja
-          compiler: gcc
-          install_cmd: |
-            sudo apt-get update
-            sudo apt-get install g++-12 ninja-build python3
-          test_cmd: $(test_cmd_single_cfg)
-          BUILD_DIR: $(compiler)
-          CC: gcc-12
+          generator: 'Unix Makefiles'
           CXX: g++-12
-        Linux_clang16:
+          test_cmd: $(test_cmd_single_cfg)
+        Linux_clang15:
           vmImage: Ubuntu-22.04
-          project: ninja
-          compiler: clang
-          install_cmd: |
-            wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-            sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main"
-            sudo apt-get update
-            sudo apt-get install clang-16 libc++-16-dev libc++abi-16-dev lld-16 ninja-build python3
+          generator: 'Unix Makefiles'
+          CXX: clang++-15
           test_cmd: $(test_cmd_single_cfg)
-          BUILD_DIR: $(compiler)
-          CC: clang-16
-          CXX: clang++-16
-        macOS_13_clang:
+        macOS_clang:
           vmImage: macOS-13
-          project: ninja
-          compiler: clang
-          install_cmd: 'brew install ninja'
-          test_cmd: $(test_cmd_single_cfg)
-          BUILD_DIR: $(compiler)
-          CC: clang
+          generator: 'Unix Makefiles'
           CXX: clang++
+          test_cmd: $(test_cmd_single_cfg)
 
     pool:
       vmImage: $(vmImage)
@@ -118,28 +83,16 @@ stages:
       - checkout: self
         fetchDepth: 5
 
-      - bash: eval '$(install_cmd)'
-        displayName: 'Install'
-        condition: ne(variables.install_cmd, '')
-
-      - pwsh: |
-          $mingwPath = "C:\msys64\mingw64\bin"
-          Write-Host "##vso[task.setvariable variable=PATH;]$mingwPath;${env:PATH}";
-        displayName: 'Config msys2 PATH'
-        condition: eq(variables.compiler, 'mingw')
-
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '3.x'
-          addToPath: true
-          architecture: 'x64'
-
-      - task: PythonScript@0
+      - bash: |
+          eval '$(build_setup_cmd)'
+          mkdir Build
+          cd Build
+          cmake -G "$(generator)" $(toolset) -DCMAKE_CXX_COMPILER=$(CXX) $(build_type) ../
+          cmake --build . --config $(configuration)
+          cd ../
+        failOnStderr: true
         displayName: 'Build'
-        inputs:
-          scriptPath: Build.py
-          arguments: '$(project) $(compiler) $(platform) $(configuration)'
 
       - bash: eval '$(test_cmd)'
         displayName: 'Test'
-        condition: ne(variables.test_cmd, '')
+        condition: ne(variables['test_cmd'], '')
