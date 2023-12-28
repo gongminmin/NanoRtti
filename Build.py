@@ -304,7 +304,7 @@ class BuildInfo:
 				LogError("Could NOT find g++. Please install g++, set its path into CXX, or put its path into %%PATH%%.")
 			else:
 				return None
-		else:			
+		else:
 			return gcc_loc.split(self.sep)[0]
 
 	def RetrieveGCCVersion(self):
@@ -457,7 +457,7 @@ def BuildProjects(name, build_path, build_info, compiler_info, project_list, add
 			toolset_name += " v%s," % build_info.compiler_version
 			toolset_name += "host=x64"
 
-	if build_info.compiler_name == "vc":
+	if (build_info.compiler_name == "vc") or (build_info.compiler_name == "clangcl"):
 		if "x64" == compiler_info.arch:
 			vc_option = "amd64"
 			vc_arch = "x64"
@@ -549,11 +549,16 @@ def BuildProjects(name, build_path, build_info, compiler_info, project_list, add
 			new_path = sys.exec_prefix
 			if len(compiler_info.compiler_root) > 0:
 				new_path += ";" + compiler_info.compiler_root
-			if build_info.compiler_name == "vc":
+				if build_info.compiler_name == "clangcl":
+					new_path += ";" + compiler_info.compiler_root + "../../Tools/Llvm/%s/bin/" % vc_arch
+			if (build_info.compiler_name == "vc") or (build_info.compiler_name == "clangcl"):
 				cmake_cmd.AddCommand('@SET PATH=%s;%%PATH%%' % new_path)
 				cmake_cmd.AddCommand('@CALL "%s%s" %s' % (compiler_info.compiler_root, compiler_info.vcvarsall_path, vc_option))
 				cmake_cmd.AddCommand('@CD /d "%s"' % build_dir)
-				additional_options += " -DCMAKE_CXX_COMPILER=cl.exe"
+				if build_info.compiler_name == "vc":
+					additional_options += " -DCMAKE_CXX_COMPILER=cl.exe"
+				else:
+					additional_options += " -DCMAKE_CXX_COMPILER=clang-cl.exe"
 			cmake_cmd.AddCommand('cmake -G "%s" %s ../../' % (compiler_info.generator, additional_options))
 			if cmake_cmd.Execute() != 0:
 				LogWarning("Config %s failed, retry 1...\n" % name)
@@ -563,7 +568,7 @@ def BuildProjects(name, build_path, build_info, compiler_info, project_list, add
 						LogError("Config %s failed.\n" % name)
 
 			build_cmd = BatchCommand(build_info.host_platform)
-			if build_info.compiler_name == "vc":
+			if (build_info.compiler_name == "vc") or (build_info.compiler_name == "clangcl"):
 				build_cmd.AddCommand('@CALL "%s%s" %s' % (compiler_info.compiler_root, compiler_info.vcvarsall_path, vc_option))
 				build_cmd.AddCommand('@CD /d "%s"' % build_dir)
 			for target in project_list:
